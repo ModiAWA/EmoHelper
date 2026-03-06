@@ -110,8 +110,8 @@ public class CoordinateListScreen extends Screen {
 
     private Text getRenderModeToggleText() {
         String modeKey = switch (ConfigManager.getModConfig().getRenderMode()) {
-            case SAFE_MESH -> "text.emohelper.render_mode.mesh";
-            case SAFE_FULL_BLOCK -> "text.emohelper.render_mode.full";
+            case MESH -> "text.emohelper.render_mode.mesh";
+            case FULL_BLOCK -> "text.emohelper.render_mode.full";
             default -> "text.emohelper.render_mode.outline";
         };
         return Text.translatable("button.emohelper.render_mode", Text.translatable(modeKey));

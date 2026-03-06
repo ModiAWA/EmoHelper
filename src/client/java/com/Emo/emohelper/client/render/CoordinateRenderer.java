@@ -99,7 +99,7 @@ public class CoordinateRenderer {
 
         Tessellator tessellator = Tessellator.getInstance();
 
-        if (mode == com.Emo.emohelper.config.ModConfig.RenderMode.SAFE_FULL_BLOCK) {
+        if (mode == com.Emo.emohelper.config.ModConfig.RenderMode.FULL_BLOCK) {
             BufferBuilder quadBuffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
             drawSolidFaces(quadBuffer, matrixStack);
             RenderSystem.setShader(ShaderProgramKeys.POSITION);
@@ -109,7 +109,7 @@ public class CoordinateRenderer {
 
         BufferBuilder lineBuffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION);
         drawOutline(lineBuffer, matrixStack);
-        if (mode == com.Emo.emohelper.config.ModConfig.RenderMode.SAFE_MESH) {
+        if (mode == com.Emo.emohelper.config.ModConfig.RenderMode.MESH) {
             drawFaceMesh(lineBuffer, matrixStack);
         }
 

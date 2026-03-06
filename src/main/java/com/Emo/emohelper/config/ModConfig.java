@@ -7,15 +7,15 @@ import com.google.gson.JsonObject;
  */
 public class ModConfig {
     public enum RenderMode {
-        SAFE_OUTLINE,
-        SAFE_MESH,
-        SAFE_FULL_BLOCK;
+        OUTLINE,
+        MESH,
+        FULL_BLOCK;
 
         public RenderMode next() {
             return switch (this) {
-                case SAFE_OUTLINE -> SAFE_MESH;
-                case SAFE_MESH -> SAFE_FULL_BLOCK;
-                case SAFE_FULL_BLOCK -> SAFE_OUTLINE;
+                case OUTLINE -> MESH;
+                case MESH -> FULL_BLOCK;
+                case FULL_BLOCK -> OUTLINE;
             };
         }
     }
@@ -33,7 +33,7 @@ public class ModConfig {
         this.boxLineWidth = 1.0f;
         this.renderDistance = 256.0f;
         this.showLabels = true;
-        this.renderMode = RenderMode.SAFE_MESH;
+        this.renderMode = RenderMode.MESH;
     }
 
     // Getters
@@ -51,7 +51,7 @@ public class ModConfig {
     public void setRenderDistance(float renderDistance) { this.renderDistance = Math.max(1.0f, renderDistance); }
     public void setShowLabels(boolean showLabels) { this.showLabels = showLabels; }
     public void setRenderMode(RenderMode renderMode) {
-        this.renderMode = renderMode == null ? RenderMode.SAFE_MESH : renderMode;
+        this.renderMode = renderMode == null ? RenderMode.MESH : renderMode;
     }
 
     // 转换为JSON
@@ -85,12 +85,26 @@ public class ModConfig {
             config.setShowLabels(json.get("showLabels").getAsBoolean());
         }
         if (json.has("renderMode")) {
-            try {
-                config.setRenderMode(RenderMode.valueOf(json.get("renderMode").getAsString()));
-            } catch (IllegalArgumentException ignored) {
-                config.setRenderMode(RenderMode.SAFE_MESH);
-            }
+            config.setRenderMode(parseRenderMode(json.get("renderMode").getAsString()));
         }
         return config;
+    }
+
+    private static RenderMode parseRenderMode(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return RenderMode.MESH;
+        }
+        return switch (rawValue) {
+            case "SAFE_OUTLINE" -> RenderMode.OUTLINE;
+            case "SAFE_MESH" -> RenderMode.MESH;
+            case "SAFE_FULL_BLOCK" -> RenderMode.FULL_BLOCK;
+            default -> {
+                try {
+                    yield RenderMode.valueOf(rawValue);
+                } catch (IllegalArgumentException ignored) {
+                    yield RenderMode.MESH;
+                }
+            }
+        };
     }
 }
