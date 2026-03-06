@@ -6,11 +6,26 @@ import com.google.gson.JsonObject;
  * 全局模组配置类
  */
 public class ModConfig {
+    public enum RenderMode {
+        SAFE_OUTLINE,
+        SAFE_MESH,
+        SAFE_FULL_BLOCK;
+
+        public RenderMode next() {
+            return switch (this) {
+                case SAFE_OUTLINE -> SAFE_MESH;
+                case SAFE_MESH -> SAFE_FULL_BLOCK;
+                case SAFE_FULL_BLOCK -> SAFE_OUTLINE;
+            };
+        }
+    }
+
     private int maxCoordinates;
     private boolean renderingEnabled;
     private float boxLineWidth;
     private float renderDistance;
     private boolean showLabels;
+    private RenderMode renderMode;
 
     public ModConfig() {
         this.maxCoordinates = 10;
@@ -18,6 +33,7 @@ public class ModConfig {
         this.boxLineWidth = 1.0f;
         this.renderDistance = 256.0f;
         this.showLabels = true;
+        this.renderMode = RenderMode.SAFE_MESH;
     }
 
     // Getters
@@ -26,6 +42,7 @@ public class ModConfig {
     public float getBoxLineWidth() { return boxLineWidth; }
     public float getRenderDistance() { return renderDistance; }
     public boolean shouldShowLabels() { return showLabels; }
+    public RenderMode getRenderMode() { return renderMode; }
 
     // Setters
     public void setMaxCoordinates(int maxCoordinates) { this.maxCoordinates = Math.max(1, maxCoordinates); }
@@ -33,6 +50,9 @@ public class ModConfig {
     public void setBoxLineWidth(float boxLineWidth) { this.boxLineWidth = Math.max(0.1f, boxLineWidth); }
     public void setRenderDistance(float renderDistance) { this.renderDistance = Math.max(1.0f, renderDistance); }
     public void setShowLabels(boolean showLabels) { this.showLabels = showLabels; }
+    public void setRenderMode(RenderMode renderMode) {
+        this.renderMode = renderMode == null ? RenderMode.SAFE_MESH : renderMode;
+    }
 
     // 转换为JSON
     public JsonObject toJson() {
@@ -42,6 +62,7 @@ public class ModConfig {
         json.addProperty("boxLineWidth", boxLineWidth);
         json.addProperty("renderDistance", renderDistance);
         json.addProperty("showLabels", showLabels);
+        json.addProperty("renderMode", renderMode.name());
         return json;
     }
 
@@ -62,6 +83,13 @@ public class ModConfig {
         }
         if (json.has("showLabels")) {
             config.setShowLabels(json.get("showLabels").getAsBoolean());
+        }
+        if (json.has("renderMode")) {
+            try {
+                config.setRenderMode(RenderMode.valueOf(json.get("renderMode").getAsString()));
+            } catch (IllegalArgumentException ignored) {
+                config.setRenderMode(RenderMode.SAFE_MESH);
+            }
         }
         return config;
     }

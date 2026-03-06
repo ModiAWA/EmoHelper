@@ -33,14 +33,13 @@ public class EmohelperClient implements ClientModInitializer {
             }
         });
 
-        // 在半透明阶段后渲染，避免 LAST 阶段缓冲状态不一致导致崩溃。
-        WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
+        // 使用 LAST 事件以便完全控制深度状态
+        WorldRenderEvents.LAST.register(context -> {
             var client_ref = MinecraftClient.getInstance();
             if (client_ref.cameraEntity != null && client_ref.gameRenderer.getCamera() != null) {
                 var camera = client_ref.gameRenderer.getCamera();
                 CoordinateRenderer.render(
                     context.matrixStack(),
-                    context.consumers(),
                     camera.getPos().x,
                     camera.getPos().y,
                     camera.getPos().z,

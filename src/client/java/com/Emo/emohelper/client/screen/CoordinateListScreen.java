@@ -90,6 +90,14 @@ public class CoordinateListScreen extends Screen {
             ConfigManager.save();
             button.setMessage(getLabelToggleText());
         }).dimensions(10, 30, 140, 20).build());
+
+        // 渲染模式开关（稳定: 网格/线框）
+        this.addDrawableChild(ButtonWidget.builder(getRenderModeToggleText(), button -> {
+            var config = ConfigManager.getModConfig();
+            config.setRenderMode(config.getRenderMode().next());
+            ConfigManager.save();
+            button.setMessage(getRenderModeToggleText());
+        }).dimensions(160, 30, 170, 20).build());
     }
 
     private Text getLabelToggleText() {
@@ -98,6 +106,15 @@ public class CoordinateListScreen extends Screen {
                 ? "button.emohelper.labels_on"
                 : "button.emohelper.labels_off"
         );
+    }
+
+    private Text getRenderModeToggleText() {
+        String modeKey = switch (ConfigManager.getModConfig().getRenderMode()) {
+            case SAFE_MESH -> "text.emohelper.render_mode.mesh";
+            case SAFE_FULL_BLOCK -> "text.emohelper.render_mode.full";
+            default -> "text.emohelper.render_mode.outline";
+        };
+        return Text.translatable("button.emohelper.render_mode", Text.translatable(modeKey));
     }
 
     @Override
