@@ -59,6 +59,9 @@ processResources {
     inputs.property "loader_version", project.loader_version
     filteringCharset "UTF-8"
 
+    // Include root icon file so fabric.mod.json icon path "Icon.png" resolves.
+    from("Icon.png")
+
     filesMatching("fabric.mod.json") {
         expand "version": project.version,
                 "minecraft_version": project.minecraft_version,

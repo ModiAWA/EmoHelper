@@ -1,4 +1,7 @@
 # EmoHelper
+<p align="center">
+  <img alt="LOGO" src="Icon.png" width="128" height="128" />
+</p>
 
 > A Fabric coordinate helper mod for Minecraft 1.21.4.
 > 

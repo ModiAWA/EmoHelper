@@ -3,11 +3,13 @@
   "id": "emohelper",
   "version": "${version}",
   "name": "EmoHelper",
+  "icon": "Icon.png",
   "description": "A powerful client-side coordinate helper mod for Minecraft. Easily manage, visualize, and share coordinate points in your world.",
   "authors": ["Emo"],
   "contact": {
-    "issues": "https://github.com/",
-    "sources": "https://github.com/"
+    "homepage": "https://github.com/ModiAWA/EmoHelper",
+    "issues": "https://github.com/ModiAWA/EmoHelper/issues",
+    "sources": "https://github.com/ModiAWA/EmoHelper"
   },
   "license": "AGPL-3.0",
   "environment": "client",
