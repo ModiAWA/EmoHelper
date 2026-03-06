@@ -3,7 +3,7 @@
   "id": "emohelper",
   "version": "${version}",
   "name": "EmoHelper",
-  "icon": "Icon.png",
+  "icon": "assets/emohelper/Icon.png",
   "description": "A powerful client-side coordinate helper mod for Minecraft. Easily manage, visualize, and share coordinate points in your world.",
   "authors": ["Emo"],
   "contact": {
