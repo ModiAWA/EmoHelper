@@ -1,0 +1,6 @@
+{
+  "key.emohelper.toggle_rendering": "Toggle Coordinate Rendering",
+  "key.emohelper.open_config": "Open Coordinate Manager",
+  "category.emohelper": "Emo Helper",
+  "legacy": "This file has been moved to emohelper namespace. See src/main/resources/assets/emohelper/"
+}

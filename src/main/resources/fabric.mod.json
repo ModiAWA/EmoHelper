@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "emohelper",
+  "version": "${version}",
+  "name": "EmoHelper",
+  "description": "A powerful client-side coordinate helper mod for Minecraft. Easily manage, visualize, and share coordinate points in your world.",
+  "authors": ["Emo"],
+  "contact": {
+    "issues": "https://github.com/",
+    "sources": "https://github.com/"
+  },
+  "license": "AGPL-3.0",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-datagen": [
+      "com.Emo.emohelper.client.EmohelperDataGenerator"
+    ],
+    "client": [
+      "com.Emo.emohelper.client.EmohelperClient"
+    ],
+    "main": [
+      "com.Emo.emohelper.Emohelper"
+    ],
+    "modmenu": [
+      "com.Emo.emohelper.client.integration.ModMenuIntegration"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}
