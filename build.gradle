@@ -56,19 +56,23 @@ dependencies {
     modLocalRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
 }
 
+def modVersionForResources = version.toString()
+def mcVersionForResources = project.minecraft_version.toString()
+def loaderVersionForResources = project.loader_version.toString()
+
 processResources {
-    inputs.property "version", project.version
-    inputs.property "minecraft_version", project.minecraft_version
-    inputs.property "loader_version", project.loader_version
-    filteringCharset "UTF-8"
+    inputs.property "version", modVersionForResources
+    inputs.property "minecraft_version", mcVersionForResources
+    inputs.property "loader_version", loaderVersionForResources
+    filteringCharset = "UTF-8"
 
     // Include root icon file so fabric.mod.json icon path "Icon.png" resolves.
     from("Icon.png")
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version,
-                "minecraft_version": project.minecraft_version,
-                "loader_version": project.loader_version
+        expand "version": modVersionForResources,
+                "minecraft_version": mcVersionForResources,
+                "loader_version": loaderVersionForResources
     }
 }
 

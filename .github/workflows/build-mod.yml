@@ -28,8 +28,13 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Debug dependency config
+        run: |
+          echo "=== build.gradle key lines ==="
+          grep -nE "skipModMenu|modCompileOnly|modLocalRuntime|maven.modrinth|terraformers" build.gradle || true
+
       - name: Build mod
-        run: ./gradlew clean build --stacktrace
+        run: ./gradlew clean build --stacktrace --refresh-dependencies -PskipModMenu=true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
