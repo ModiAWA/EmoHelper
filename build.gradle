@@ -34,8 +34,11 @@ repositories {
         url = 'https://maven.fabricmc.net/'
     }
     maven {
-        name = 'TerraformersMC'
-        url = 'https://maven.terraformersmc.com/releases'
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content {
+            includeGroup 'maven.modrinth'
+        }
     }
     mavenCentral()
 }
@@ -49,8 +52,8 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // Mod Menu integration (optional at runtime)
-    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
-    modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+    modCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
+    modLocalRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
 }
 
 processResources {
