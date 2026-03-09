@@ -1,11 +1,11 @@
 # EmoHelper
+
 <p align="center">
   <img alt="LOGO" src="Icon.png" width="128" height="128" />
 </p>
 
-> A Fabric coordinate helper mod for Minecraft 1.21.4.
-> 
-> 一个用于 Minecraft 1.21.4 的 Fabric 坐标辅助模组。
+> A Fabric client-side coordinate helper mod for Minecraft 1.21.4.  
+> 一个用于 Minecraft 1.21.4 的 Fabric 客户端坐标辅助模组。
 
 ![Platform](https://img.shields.io/badge/platform-Fabric-blue)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.4-green)
@@ -14,60 +14,21 @@
 
 ## TL;DR
 
-- In-game coordinate manager UI
-- Grouping, import/export (JSON)
-- 3 marker render modes
-- Independent label toggle
-- Hotkeys: `B` (open UI), `V` (toggle rendering)
+- In-game point manager with groups, import/export, and rendering options
+- Ordered groups support ALL / PROGRESSIVE display, route loop, guide line, and route links
+- Quick-create waypoint at player position (`J`) with localized auto temp name (`Temp1` `Temp2` ...)
+- Per-group independent limit: **200 points per group**
+- Group lock support: locked groups block add/delete/edit/reorder/move operations
 
-- 游戏内坐标管理界面
-- 分组与 JSON 导入导出
-- 3 种坐标渲染模式
-- 名字显示独立开关
-- 快捷键：`B`（打开界面）、`V`（渲染总开关）
-
----
-
-## Features / 功能
-
-### EN
-- Add / edit / delete coordinate points in UI
-- Group operations: add, rename, delete, reorder, enable/disable
-- JSON import/export for coordinate sharing
-- Marker render modes:
-  - `OUTLINE` - wireframe
-  - `MESH` - wireframe + face mesh
-  - `FULL_BLOCK` - solid faces + outline
-- Label visibility toggle independent from marker rendering
-
-### 中文
-- 在界面中增删改坐标点
-- 分组管理：新增、重命名、删除、排序、整组开关
-- JSON 导入导出，方便共享坐标
-- 渲染模式：
-  - `OUTLINE` - 线框
-  - `MESH` - 线框 + 面网格
-  - `FULL_BLOCK` - 实心面 + 外轮廓
-- 名字显示开关与方框渲染开关独立
-
----
-
-## Screenshots / 截图
--  Main Screen / 主屏幕
-![Main Screen](ScreenShots/MainScreen.png)
-- Outline Mode / 线框模式
-![Outline Mode](ScreenShots/Outlines.png)
-- Mesh Mode / 网格模式
-![Mesh Mode](ScreenShots/Mesh.png)
-- Full Block Mode / 实心块模式
-![Full Block Mode](ScreenShots/FullBlock.png)
-
+- 游戏内坐标管理、分组、导入导出、渲染设置
+- 有序组支持 全部/逐步 显示、闭环、准星引导线、点位连线
+- 快速建点（`J`）：使用玩家当前位置，自动临时命名（`临时1`、`临时2`...）
+- 每组独立上限：**每组 200 点**
+- 分组锁定：锁定后禁止该组增删改、拖拽排序与跨组移动
 
 ---
 
 ## Compatibility / 兼容信息
-
-Based on current project config:
 
 - Minecraft: `1.21.4`
 - Fabric Loader: `0.18.4`
@@ -76,67 +37,152 @@ Based on current project config:
 
 ---
 
-## Installation / 安装
+## Features / 功能
 
-### EN
-1. Install Fabric Loader for Minecraft `1.21.4`
-2. Install Fabric API
-3. Put the built mod `.jar` into your `.minecraft/mods` folder
-4. Launch the game with Fabric profile
+### Coordinates and groups
 
-### 中文
-1. 先安装 Minecraft `1.21.4` 对应的 Fabric Loader
-2. 安装 Fabric API
-3. 将构建出的模组 `.jar` 放到 `.minecraft/mods` 目录
-4. 使用 Fabric 配置启动游戏
+- Add / edit / delete points in UI
+- Group operations: add, rename, delete, reorder, enable/disable
+- Group lock / unlock in list view
+- JSON import/export (all groups or single group)
+
+### 坐标与分组
+
+- 在游戏内 UI 中增删改坐标点
+- 分组操作：新增、重命名、删除、排序、整组启用/禁用
+- 列表中支持分组锁定/解锁
+- JSON 导入导出（全部分组或单个分组）
+
+### Rendering
+
+- Point render modes:
+  - `OUTLINE`
+  - `MESH`
+  - `FULL_BLOCK`
+- Label rendering toggle per group
+- Ordered group route display:
+  - `ALL`: show all ordered points
+  - `PROGRESSIVE`: show current + next point
+- Ordered route links:
+  - Connect ordered points in sequence
+  - Optional loop (tail to head)
+  - In progressive mode, draw link between the two visible points
+  - Segment hidden when both endpoints are outside render distance
+
+### 渲染
+
+- 坐标点渲染模式：
+  - `OUTLINE`
+  - `MESH`
+  - `FULL_BLOCK`
+- 每个分组可独立开关标签显示
+- 有序组显示模式：
+  - `ALL`：显示全部有序点
+  - `PROGRESSIVE`：仅显示当前点和下一个点
+- 有序组路径连线：
+  - 按顺序连接每个点
+  - 可选闭环（尾连头）
+  - 逐步模式下显示两个可见点之间的连线
+  - 当线段两端都超出渲染距离时不渲染该线段
+
+### Ordered route extras
+
+- Crosshair guide line to next target
+- Route start index
+- Loop route option
+
+### 有序路线附加功能
+
+- 准星引导线指向下一个目标点
+- 路线起始点序号设置
+- 路线闭环开关
+
+### 快捷功能
+
+- 快速创建坐标点（默认 `J`）
+- 自动分配临时名称（`临时N`，跳过已占用编号）
+- 添加坐标界面中 `X/Y/Z` 默认显示为玩家当前位置占位文本，可直接输入覆盖
 
 ---
 
-## Usage / 使用说明
+## Hotkeys / 快捷键
 
-### Hotkeys / 快捷键
 - `B`: Open coordinate manager / 打开坐标管理界面
-- `V`: Toggle marker rendering / 切换渲染总开关
+- `V`: Toggle global rendering / 切换渲染总开关
+- `N`: Toggle ordered display mode / 切换有序组显示模式
+- `M`: Initialize ordered route / 初始化有序路线
+- `J`: Quick create point at player position / 快速创建当前位置坐标点
 
-### Basic flow 
-1. Press `B` to open manager
-2. Add points and organize groups
-3. Choose render mode in UI
-4. Toggle labels as needed
-### 常用流程
-1. 按 `B` 打开管理界面
-2. 添加坐标并整理分组
-3. 在 UI 中切换渲染模式
-4. 按需开关名字显示
+> Keybinds are configurable in Minecraft Controls menu.  
+> 可在 Minecraft 控制设置中改键。
+
+---
+
+## Installation / 安装
+
+### EN
+
+1. Install Fabric Loader for Minecraft `1.21.4`
+2. Install Fabric API
+3. Put mod `.jar` into `.minecraft/mods`
+4. Launch with Fabric profile
+
+### 中文
+
+1. 安装 Minecraft `1.21.4` 对应 Fabric Loader
+2. 安装 Fabric API
+3. 将模组 `.jar` 放入 `.minecraft/mods`
+4. 使用 Fabric 配置启动
 
 ---
 
 ## Configuration / 配置
 
-Runtime config file:
+### Runtime files
 
-- `run/config/emohelper/emohelper.json`
+- Global config: `run/config/emohelper/emohelper.json`
+- Group data files: `run/emohelper/*.json`
 
-Important fields:
+### 运行时文件
 
-- `renderingEnabled`: global marker rendering on/off
-- `showLabels`: label on/off
+- 全局配置：`run/config/emohelper/emohelper.json`
+- 分组数据：`run/emohelper/*.json`
+
+### Notes
+
+- Global file stores mod-level options (e.g. global rendering state)
+- Each group file stores:
+  - group metadata (`groupType`, render settings, lock state)
+  - points list
+  - order index
+
+### 说明
+
+- 全局文件保存模组级配置（例如渲染总开关）
+- 每个分组文件保存：
+  - 分组元数据（`groupType`、渲染设置、锁定状态）
+  - 坐标点列表
+  - 分组排序索引
+
+### 常见字段
+
+- `renderingEnabled`: global render switch / 渲染总开关
 - `renderMode`: `OUTLINE | MESH | FULL_BLOCK`
-- `renderDistance`: max marker rendering distance
-
-- `renderingEnabled`：渲染总开关
-- `showLabels`：名字显示开关
-- `renderMode`：渲染模式
-- `renderDistance`：渲染距离
+- `locked`: group lock state / 分组锁定状态
+- `routeLineEnabled`, `routeLineGradient`, `routeLineAlpha`, `routeLineBrightness`: ordered route link styling
 
 ---
 
+## Screenshots / 截图
 
-## Changelog / 更新记录
-
-### v0.0.1-Beta
-- Initial public beta
-- Coordinate manager + rendering modes + label control
+- Main Screen / 主屏幕  
+  ![Main Screen](ScreenShots/MainScreen.png)
+- Outline Mode / 线框模式  
+  ![Outline Mode](ScreenShots/Outlines.png)
+- Mesh Mode / 网格模式  
+  ![Mesh Mode](ScreenShots/Mesh.png)
+- Full Block Mode / 实心块模式  
+  ![Full Block Mode](ScreenShots/FullBlock.png)
 
 ---
 

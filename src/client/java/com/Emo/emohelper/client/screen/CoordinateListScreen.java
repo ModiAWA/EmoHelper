@@ -1,5 +1,6 @@
 package com.Emo.emohelper.client.screen;
 
+import com.Emo.emohelper.client.OrderedRouteManager;
 import com.Emo.emohelper.config.ConfigManager;
 import com.Emo.emohelper.config.CoordinateData;
 import com.Emo.emohelper.model.CoordinatePoint;
@@ -45,6 +46,8 @@ public class CoordinateListScreen extends Screen {
     private boolean draggedPoint = false;
     private int dragStartX = 0;
     private int dragStartPointY = 0;
+    private String orderedInsertPreviewGroup = null;
+    private int orderedInsertPreviewIndex = -1;
     private CoordinatePoint pendingOpenPoint = null;
     private String pendingOpenGroup = null;
 
@@ -56,6 +59,8 @@ public class CoordinateListScreen extends Screen {
 
     @Override
     protected void init() {
+        OrderedRouteManager.setPreferredGroup(selectedGroup);
+
         // 返回按钮
         this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.back"), button -> {
             this.client.setScreen(parent);
@@ -63,6 +68,10 @@ public class CoordinateListScreen extends Screen {
 
         // 新增坐标按钮
         this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.add_coordinate"), button -> {
+            if (coordinateData.isGroupLocked(selectedGroup)) {
+                showGroupLockedMessage();
+                return;
+            }
             this.client.setScreen(new CoordinateInputScreen(this, null, coordinateData.getPointCount(), selectedGroup));
         }).dimensions(this.width - 220, this.height - 35, 100, 20).build());
 
@@ -81,40 +90,10 @@ public class CoordinateListScreen extends Screen {
              String newGroup = createUniqueGroupName(Text.translatable("text.emohelper.new_group_default").getString());
              coordinateData.addGroup(newGroup);
              selectedGroup = newGroup;
+             OrderedRouteManager.setPreferredGroup(selectedGroup);
              ConfigManager.save();
         }).dimensions(this.width - 110, this.height - 35, 100, 20).build());
 
-        // 显示名字开关
-        this.addDrawableChild(ButtonWidget.builder(getLabelToggleText(), button -> {
-            ConfigManager.getModConfig().setShowLabels(!ConfigManager.getModConfig().shouldShowLabels());
-            ConfigManager.save();
-            button.setMessage(getLabelToggleText());
-        }).dimensions(10, 30, 140, 20).build());
-
-        // 渲染模式开关（稳定: 网格/线框）
-        this.addDrawableChild(ButtonWidget.builder(getRenderModeToggleText(), button -> {
-            var config = ConfigManager.getModConfig();
-            config.setRenderMode(config.getRenderMode().next());
-            ConfigManager.save();
-            button.setMessage(getRenderModeToggleText());
-        }).dimensions(160, 30, 170, 20).build());
-    }
-
-    private Text getLabelToggleText() {
-        return Text.translatable(
-            ConfigManager.getModConfig().shouldShowLabels()
-                ? "button.emohelper.labels_on"
-                : "button.emohelper.labels_off"
-        );
-    }
-
-    private Text getRenderModeToggleText() {
-        String modeKey = switch (ConfigManager.getModConfig().getRenderMode()) {
-            case MESH -> "text.emohelper.render_mode.mesh";
-            case FULL_BLOCK -> "text.emohelper.render_mode.full";
-            default -> "text.emohelper.render_mode.outline";
-        };
-        return Text.translatable("button.emohelper.render_mode", Text.translatable(modeKey));
     }
 
     @Override
@@ -134,6 +113,8 @@ public class CoordinateListScreen extends Screen {
         pointActions.clear();
         groupHeaderY.clear();
         lastEntries = buildEntries();
+        boolean fallbackShowLabels = ConfigManager.getModConfig().shouldShowLabels();
+        float fallbackRenderDistance = ConfigManager.getModConfig().getRenderDistance();
         int totalEntries = lastEntries.size();
         int listHeight = getListHeight(totalEntries);
 
@@ -159,11 +140,29 @@ public class CoordinateListScreen extends Screen {
                 int enabledCount = coordinateData.getGroupEnabledCount(entry.groupName);
                 int totalCount = coordinateData.getGroupTotalCount(entry.groupName);
                 boolean allDisabled = totalCount > 0 && enabledCount == 0;
-                int baseColor = entry.groupName.equals(selectedGroup) ? 0xFF4A4A6A : 0xFF2F2F2F;
+                CoordinateData.GroupRenderSettings settings = coordinateData.getGroupRenderSettings(
+                    entry.groupName,
+                    fallbackShowLabels,
+                    fallbackRenderDistance);
+                boolean orderedGroup = settings.groupType() == CoordinateData.GroupType.ORDERED;
+                boolean lockedGroup = coordinateData.isGroupLocked(entry.groupName);
+                int baseColor;
+                if (entry.groupName.equals(selectedGroup)) {
+                    baseColor = orderedGroup ? 0xFF405780 : 0xFF4A4A6A;
+                } else {
+                    baseColor = orderedGroup ? 0xFF2D3C57 : 0xFF2F2F2F;
+                }
+                if (lockedGroup) {
+                    baseColor = entry.groupName.equals(selectedGroup) ? 0xFF5A445A : 0xFF463346;
+                }
                 int bg = allDisabled ? 0xFF2A2A2A : baseColor;
                 context.fill(15, y, this.width - 15, y + ENTRY_HEIGHT, bg);
                 String indicator = collapsedGroups.contains(entry.groupName) ? "+" : "-";
-                Text header = Text.translatable("text.emohelper.group_header", entry.groupName, enabledCount, totalCount);
+                String groupTypeLabel = orderedGroup
+                    ? Text.translatable("text.emohelper.group_type_marker.ordered").getString()
+                    : Text.translatable("text.emohelper.group_type_marker.normal").getString();
+                String groupDisplayName = "[" + groupTypeLabel + "] " + entry.groupName;
+                Text header = Text.translatable("text.emohelper.group_header", groupDisplayName, enabledCount, totalCount);
                 int indicatorWidth = this.textRenderer.getWidth(indicator);
 
                 int textColor = allDisabled ? 0xFF888888 : 0xFFFFFF;
@@ -171,7 +170,7 @@ public class CoordinateListScreen extends Screen {
                 context.drawTextWithShadow(this.textRenderer, header, GROUP_INDICATOR_X + indicatorWidth + 6, y + 6, textColor);
                 groupHeaderY.put(entry.groupName, y);
 
-                GroupActionBounds bounds = drawGroupActions(context, entry.groupName, y, indicatorWidth);
+                GroupActionBounds bounds = drawGroupActions(context, entry.groupName, y, indicatorWidth, lockedGroup);
                 groupActions.put(entry.groupName, bounds);
             } else if (entry.point != null) {
                 int bg = hovered ? 0xFF555555 : 0xFF3F3F3F;
@@ -197,6 +196,8 @@ public class CoordinateListScreen extends Screen {
              }
              y += ENTRY_HEIGHT;
          }
+
+        drawOrderedInsertPreview(context);
 
         if (totalEntries > entriesPerPage) {
             int scrollBarHeight = (listHeight * entriesPerPage) / totalEntries;
@@ -235,22 +236,41 @@ public class CoordinateListScreen extends Screen {
                                 return true;
                             }
                             if (bounds.isAdd(mouseX)) {
+                                if (coordinateData.isGroupLocked(entry.groupName)) {
+                                    showGroupLockedMessage();
+                                    return true;
+                                }
                                 pendingDeleteGroup = null;
                                 this.client.setScreen(new CoordinateInputScreen(this, null, coordinateData.getPointCount(), entry.groupName));
                                 return true;
                             }
                             if (bounds.isToggle(mouseX)) {
+                                if (coordinateData.isGroupLocked(entry.groupName)) {
+                                    showGroupLockedMessage();
+                                    return true;
+                                }
                                 pendingDeleteGroup = null;
                                 boolean enable = !coordinateData.isGroupFullyEnabled(entry.groupName);
                                 coordinateData.setGroupEnabled(entry.groupName, enable);
                                 ConfigManager.save();
                                 return true;
                             }
+                            if (bounds.isLock(mouseX)) {
+                                pendingDeleteGroup = null;
+                                coordinateData.setGroupLocked(entry.groupName, !coordinateData.isGroupLocked(entry.groupName));
+                                ConfigManager.save();
+                                return true;
+                            }
                             if (bounds.isDelete(mouseX)) {
+                                if (coordinateData.isGroupLocked(entry.groupName)) {
+                                    showGroupLockedMessage();
+                                    return true;
+                                }
                                 if (entry.groupName.equals(pendingDeleteGroup)) {
                                     coordinateData.removeGroup(entry.groupName);
                                     if (entry.groupName.equals(selectedGroup)) {
                                         selectedGroup = getFallbackGroup();
+                                        OrderedRouteManager.setPreferredGroup(selectedGroup);
                                     }
                                     ConfigManager.save();
                                     pendingDeleteGroup = null;
@@ -267,7 +287,12 @@ public class CoordinateListScreen extends Screen {
                         }
                         pendingDeleteGroup = null;
                         selectedGroup = entry.groupName;
+                        OrderedRouteManager.setPreferredGroup(selectedGroup);
                         if (isDoubleClick(entry.groupName)) {
+                            if (coordinateData.isGroupLocked(entry.groupName)) {
+                                showGroupLockedMessage();
+                                return true;
+                            }
                             this.client.setScreen(new RenameGroupScreen(this, entry.groupName));
                             return true;
                         }
@@ -281,14 +306,20 @@ public class CoordinateListScreen extends Screen {
                         PointActionBounds bounds = pointActions.get(entry.point);
                         if (bounds != null && bounds.contains(mouseX)) {
                             if (bounds.isToggle(mouseX)) {
-                                entry.point.setEnabled(!entry.point.isEnabled());
+                                if (!coordinateData.setPointEnabled(entry.point, !entry.point.isEnabled())) {
+                                    showGroupLockedMessage();
+                                    return true;
+                                }
                                 ConfigManager.save();
                                 return true;
                             }
                             if (bounds.isDelete(mouseX)) {
                                 int pointIndex = coordinateData.indexOf(entry.point);
                                 if (pointIndex >= 0) {
-                                    coordinateData.removePoint(pointIndex);
+                                    if (!coordinateData.removePoint(pointIndex)) {
+                                        showGroupLockedMessage();
+                                        return true;
+                                    }
                                     ConfigManager.save();
                                 }
                                 return true;
@@ -311,6 +342,7 @@ public class CoordinateListScreen extends Screen {
             if (insideList) {
                 // Clicked empty list area: clear selection.
                 selectedGroup = getFallbackGroup();
+                OrderedRouteManager.setPreferredGroup(selectedGroup);
                 pendingDeleteGroup = null;
                 return true;
             }
@@ -341,6 +373,11 @@ public class CoordinateListScreen extends Screen {
             if (Math.abs(mouseX - dragStartX) > 3 || Math.abs(mouseY - dragStartPointY) > 3) {
                 draggedPoint = true;
             }
+            if (draggedPoint) {
+                updateOrderedInsertPreview((int) mouseY);
+            } else {
+                clearOrderedInsertPreview();
+            }
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
@@ -352,38 +389,135 @@ public class CoordinateListScreen extends Screen {
             if (draggingPoint != null) {
                 if (draggedPoint) {
                     String targetGroup = resolveGroupAtY((int) mouseY);
+                    if (targetGroup == null) {
+                        targetGroup = resolveGroupByEntryY((int) mouseY);
+                    }
                     if (targetGroup != null) {
-                        draggingPoint.setGroupName(targetGroup);
-                        ConfigManager.save();
+                        if (targetGroup.equals(draggingPoint.getGroupName()) && isOrderedGroup(targetGroup)) {
+                            int targetIndex = resolveOrderedInsertIndex(targetGroup, (int) mouseY);
+                            if (coordinateData.isGroupLocked(targetGroup)) {
+                                showGroupLockedMessage();
+                            } else {
+                            coordinateData.movePointWithinGroup(targetGroup, draggingPoint, targetIndex);
+                            ConfigManager.save();
+                            OrderedRouteManager.resetGroupToConfiguredStart(targetGroup);
+                            }
+                        } else {
+                            if (!coordinateData.movePointToGroup(draggingPoint, targetGroup)) {
+                                showGroupLockedMessage();
+                            } else {
+                            ConfigManager.save();
+                            }
+                        }
                     }
                 } else if (pendingOpenPoint != null) {
                     int pointIndex = coordinateData.indexOf(pendingOpenPoint);
                     if (pointIndex >= 0) {
+                        if (coordinateData.isGroupLocked(pendingOpenGroup)) {
+                            showGroupLockedMessage();
+                        } else {
                         this.client.setScreen(new CoordinateInputScreen(this, pendingOpenPoint, pointIndex, pendingOpenGroup));
+                        }
                     }
                 }
                 pendingOpenPoint = null;
                 pendingOpenGroup = null;
                 draggingPoint = null;
                 draggedPoint = false;
+                clearOrderedInsertPreview();
             }
             draggingGroup = null;
         }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
+    private void updateOrderedInsertPreview(int mouseY) {
+        if (draggingPoint == null) {
+            clearOrderedInsertPreview();
+            return;
+        }
+
+        String targetGroup = resolveGroupAtY(mouseY);
+        if (targetGroup == null) {
+            targetGroup = resolveGroupByEntryY(mouseY);
+        }
+
+        if (targetGroup != null && targetGroup.equals(draggingPoint.getGroupName()) && isOrderedGroup(targetGroup)) {
+            orderedInsertPreviewGroup = targetGroup;
+            orderedInsertPreviewIndex = resolveOrderedInsertIndex(targetGroup, mouseY);
+        } else {
+            clearOrderedInsertPreview();
+        }
+    }
+
+    private void clearOrderedInsertPreview() {
+        orderedInsertPreviewGroup = null;
+        orderedInsertPreviewIndex = -1;
+    }
+
+    private void drawOrderedInsertPreview(DrawContext context) {
+        if (!draggedPoint || orderedInsertPreviewGroup == null || orderedInsertPreviewIndex < 0) {
+            return;
+        }
+
+        Integer previewY = resolveOrderedInsertLineY(orderedInsertPreviewGroup, orderedInsertPreviewIndex);
+        if (previewY == null) {
+            return;
+        }
+
+        int lineStartX = 20;
+        int lineEndX = this.width - 20;
+        context.fill(lineStartX, previewY - 1, lineEndX, previewY + 1, 0xFF66CCFF);
+    }
+
+    private Integer resolveOrderedInsertLineY(String groupName, int insertIndex) {
+        int totalEntries = lastEntries.size();
+        int entriesPerPage = getEntriesPerPage(totalEntries);
+        int startIndex = Math.max(0, Math.min(scrollOffset, Math.max(0, totalEntries - entriesPerPage)));
+        int endIndex = Math.min(startIndex + entriesPerPage, totalEntries);
+
+        int y = LIST_Y;
+        int visibleGroupPointIndex = 0;
+        Integer lastPointBottomY = null;
+
+        for (int i = startIndex; i < endIndex; i++) {
+            ListEntry entry = lastEntries.get(i);
+            if (!entry.isGroup && entry.point != null && groupName.equals(entry.groupName)) {
+                if (insertIndex == visibleGroupPointIndex) {
+                    return y;
+                }
+                visibleGroupPointIndex++;
+                lastPointBottomY = y + ENTRY_HEIGHT;
+            }
+            y += ENTRY_HEIGHT;
+        }
+
+        if (insertIndex == visibleGroupPointIndex) {
+            return lastPointBottomY;
+        }
+        return null;
+    }
+
     private List<ListEntry> buildEntries() {
         List<ListEntry> entries = new ArrayList<>();
+        boolean fallbackShowLabels = ConfigManager.getModConfig().shouldShowLabels();
+        float fallbackRenderDistance = ConfigManager.getModConfig().getRenderDistance();
         for (String group : coordinateData.getGroups()) {
             entries.add(ListEntry.group(group));
             if (!collapsedGroups.contains(group)) {
                 List<CoordinatePoint> points = coordinateData.getPointsByGroup(group);
-                points.sort((a, b) -> {
-                    if (a.isEnabled() != b.isEnabled()) {
-                        return a.isEnabled() ? -1 : 1;
-                    }
-                    return a.getLabel().compareToIgnoreCase(b.getLabel());
-                });
+                CoordinateData.GroupRenderSettings settings = coordinateData.getGroupRenderSettings(
+                    group,
+                    fallbackShowLabels,
+                    fallbackRenderDistance);
+                if (settings.groupType() != CoordinateData.GroupType.ORDERED) {
+                    points.sort((a, b) -> {
+                        if (a.isEnabled() != b.isEnabled()) {
+                            return a.isEnabled() ? -1 : 1;
+                        }
+                        return a.getLabel().compareToIgnoreCase(b.getLabel());
+                    });
+                }
                 for (CoordinatePoint point : points) {
                     entries.add(ListEntry.point(group, point));
                 }
@@ -399,6 +533,7 @@ public class CoordinateListScreen extends Screen {
             collapsedGroups.add(groupName);
         }
         selectedGroup = groupName;
+        OrderedRouteManager.setPreferredGroup(selectedGroup);
     }
 
     private String resolveGroupAtY(int y) {
@@ -409,6 +544,51 @@ public class CoordinateListScreen extends Screen {
             }
         }
         return null;
+    }
+
+    private int resolveOrderedInsertIndex(String groupName, int mouseY) {
+        int totalEntries = lastEntries.size();
+        int entriesPerPage = getEntriesPerPage(totalEntries);
+        int startIndex = Math.max(0, Math.min(scrollOffset, Math.max(0, totalEntries - entriesPerPage)));
+        int endIndex = Math.min(startIndex + entriesPerPage, totalEntries);
+
+        int y = LIST_Y;
+        int index = 0;
+        for (int i = startIndex; i < endIndex; i++) {
+            ListEntry entry = lastEntries.get(i);
+            if (!entry.isGroup && entry.point != null && groupName.equals(entry.groupName)) {
+                if (mouseY < y + ENTRY_HEIGHT / 2) {
+                    return index;
+                }
+                index++;
+            }
+            y += ENTRY_HEIGHT;
+        }
+        return index;
+    }
+
+    private String resolveGroupByEntryY(int mouseY) {
+        int totalEntries = lastEntries.size();
+        int entriesPerPage = getEntriesPerPage(totalEntries);
+        int startIndex = Math.max(0, Math.min(scrollOffset, Math.max(0, totalEntries - entriesPerPage)));
+        int endIndex = Math.min(startIndex + entriesPerPage, totalEntries);
+
+        int y = LIST_Y;
+        for (int i = startIndex; i < endIndex; i++) {
+            if (mouseY >= y && mouseY < y + ENTRY_HEIGHT) {
+                return lastEntries.get(i).groupName;
+            }
+            y += ENTRY_HEIGHT;
+        }
+        return null;
+    }
+
+    private boolean isOrderedGroup(String groupName) {
+        CoordinateData.GroupRenderSettings settings = coordinateData.getGroupRenderSettings(
+            groupName,
+            ConfigManager.getModConfig().shouldShowLabels(),
+            ConfigManager.getModConfig().getRenderDistance());
+        return settings.groupType() == CoordinateData.GroupType.ORDERED;
     }
 
     private void recordGroupClick(String groupName) {
@@ -423,15 +603,17 @@ public class CoordinateListScreen extends Screen {
         return System.currentTimeMillis() - lastGroupClickTime < 400;
     }
 
-    private GroupActionBounds drawGroupActions(DrawContext context, String groupName, int y, int indicatorWidth) {
+    private GroupActionBounds drawGroupActions(DrawContext context, String groupName, int y, int indicatorWidth, boolean locked) {
         int right = this.width - 20;
         int actionY = y + 6;
 
         Text addText = Text.translatable("button.emohelper.group_add_short");
         Text toggleText = Text.translatable("button.emohelper.group_toggle_short");
+        Text lockText = Text.translatable(locked ? "button.emohelper.group_unlock_short" : "button.emohelper.group_lock_short");
         Text deleteText = Text.translatable("button.emohelper.group_delete_short");
         Text exportText = Text.translatable("button.emohelper.group_export_short");
 
+        int lockWidth = this.textRenderer.getWidth(lockText);
         int exportWidth = this.textRenderer.getWidth(exportText);
         int deleteWidth = this.textRenderer.getWidth(deleteText);
         int toggleWidth = this.textRenderer.getWidth(toggleText);
@@ -439,18 +621,26 @@ public class CoordinateListScreen extends Screen {
 
         int exportX = right - exportWidth;
         int deleteX = exportX - 8 - deleteWidth;
-        int toggleX = deleteX - 8 - toggleWidth;
+        int lockX = deleteX - 8 - lockWidth;
+        int toggleX = lockX - 8 - toggleWidth;
         int addX = toggleX - 8 - addWidth;
 
         context.drawTextWithShadow(this.textRenderer, addText, addX, actionY, 0xFFDDDDDD);
         context.drawTextWithShadow(this.textRenderer, toggleText, toggleX, actionY, 0xFFDDDDDD);
+        context.drawTextWithShadow(this.textRenderer, lockText, lockX, actionY, locked ? 0xFFFFCC66 : 0xFFDDDDDD);
         int deleteColor = groupName.equals(pendingDeleteGroup) ? 0xFFFF4444 : 0xFFDDDDDD;
         context.drawTextWithShadow(this.textRenderer, deleteText, deleteX, actionY, deleteColor);
         context.drawTextWithShadow(this.textRenderer, exportText, exportX, actionY, 0xFFDDDDDD);
 
-        return new GroupActionBounds(addX, toggleX, deleteX, exportX, y, ENTRY_HEIGHT,
-            addWidth, toggleWidth, deleteWidth, exportWidth,
+        return new GroupActionBounds(addX, toggleX, lockX, deleteX, exportX, y, ENTRY_HEIGHT,
+            addWidth, toggleWidth, lockWidth, deleteWidth, exportWidth,
             GROUP_INDICATOR_X, indicatorWidth);
+    }
+
+    private void showGroupLockedMessage() {
+        if (this.client != null && this.client.player != null) {
+            this.client.player.sendMessage(Text.translatable("message.emohelper.group_locked"), true);
+        }
     }
 
     private PointActionBounds drawPointActions(DrawContext context, int y) {
@@ -520,28 +710,32 @@ public class CoordinateListScreen extends Screen {
     private static class GroupActionBounds {
         private final int addX;
         private final int toggleX;
+        private final int lockX;
         private final int deleteX;
         private final int exportX;
         private final int y;
         private final int height;
         private final int addWidth;
         private final int toggleWidth;
+        private final int lockWidth;
         private final int deleteWidth;
         private final int exportWidth;
         private final int indicatorX;
         private final int indicatorWidth;
 
-        private GroupActionBounds(int addX, int toggleX, int deleteX, int exportX, int y, int height,
-                                  int addWidth, int toggleWidth, int deleteWidth, int exportWidth,
+        private GroupActionBounds(int addX, int toggleX, int lockX, int deleteX, int exportX, int y, int height,
+                                  int addWidth, int toggleWidth, int lockWidth, int deleteWidth, int exportWidth,
                                   int indicatorX, int indicatorWidth) {
             this.addX = addX;
             this.toggleX = toggleX;
+            this.lockX = lockX;
             this.deleteX = deleteX;
             this.exportX = exportX;
             this.y = y;
             this.height = height;
             this.addWidth = addWidth;
             this.toggleWidth = toggleWidth;
+            this.lockWidth = lockWidth;
             this.deleteWidth = deleteWidth;
             this.exportWidth = exportWidth;
             this.indicatorX = indicatorX;
@@ -562,6 +756,10 @@ public class CoordinateListScreen extends Screen {
 
         private boolean isDelete(double mouseX) {
             return mouseX >= deleteX && mouseX <= deleteX + deleteWidth;
+        }
+
+        private boolean isLock(double mouseX) {
+            return mouseX >= lockX && mouseX <= lockX + lockWidth;
         }
 
         private boolean isExport(double mouseX) {

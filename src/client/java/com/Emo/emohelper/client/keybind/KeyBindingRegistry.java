@@ -11,6 +11,9 @@ import org.lwjgl.glfw.GLFW;
 public class KeyBindingRegistry {
     public static KeyBinding toggleRenderingKey;
     public static KeyBinding openConfigKey;
+    public static KeyBinding toggleOrderedDisplayModeKey;
+    public static KeyBinding initializeOrderedRouteKey;
+    public static KeyBinding quickCreatePointKey;
 
     /**
      * 注册所有按键绑定
@@ -29,6 +32,30 @@ public class KeyBindingRegistry {
                 "key.emohelper.open_config",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_B,
+                "category.emohelper"
+        ));
+
+        // 切换有序组显示模式 (默认为 N 键)
+        toggleOrderedDisplayModeKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.emohelper.toggle_ordered_display_mode",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_N,
+                "category.emohelper"
+        ));
+
+        // 初始化有序路线 (默认为 M 键)
+        initializeOrderedRouteKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.emohelper.init_ordered_route",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_M,
+                "category.emohelper"
+        ));
+
+        // 快速创建坐标点 (默认为 J 键)
+        quickCreatePointKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.emohelper.quick_create_point",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_J,
                 "category.emohelper"
         ));
     }

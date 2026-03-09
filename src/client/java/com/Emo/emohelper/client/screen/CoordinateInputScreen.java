@@ -1,5 +1,6 @@
 package com.Emo.emohelper.client.screen;
 
+import com.Emo.emohelper.client.OrderedRouteManager;
 import com.Emo.emohelper.config.ConfigManager;
 import com.Emo.emohelper.config.CoordinateData;
 import com.Emo.emohelper.model.CoordinatePoint;
@@ -14,6 +15,8 @@ import net.minecraft.text.Text;
  * 坐标输入屏幕
  */
 public class CoordinateInputScreen extends Screen {
+    private static final int BASE_START_Y = 50;
+    private static final int SCROLL_STEP = 14;
     private Screen parent;
     private CoordinatePoint coordinate;
     private int index;
@@ -29,6 +32,13 @@ public class CoordinateInputScreen extends Screen {
     private TextFieldWidget groupField;
     private TextFieldWidget colorField;
     private ButtonWidget groupSelectButton;
+    private ButtonWidget saveButton;
+    private ButtonWidget deleteButton;
+    private ButtonWidget cancelButton;
+    private int defaultX;
+    private int defaultY;
+    private int defaultZ;
+    private int scrollOffset;
 
     public CoordinateInputScreen(Screen parent, CoordinatePoint coordinate, int index) {
         super(Text.translatable(coordinate == null
@@ -56,8 +66,11 @@ public class CoordinateInputScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int startY = 50;
+        int startY = BASE_START_Y;
         int fieldWidth = 150;
+        this.defaultX = resolveDefaultX();
+        this.defaultY = resolveDefaultY();
+        this.defaultZ = resolveDefaultZ();
 
         // 标签输入框
         this.labelField = new TextFieldWidget(this.textRenderer, centerX - fieldWidth / 2, startY, fieldWidth, 20,
@@ -95,6 +108,8 @@ public class CoordinateInputScreen extends Screen {
         this.xField.setMaxLength(10);
         if (isEdit) {
             this.xField.setText(String.valueOf(coordinate.getX()));
+        } else {
+            this.xField.setPlaceholder(Text.literal(String.valueOf(defaultX)));
         }
         this.addSelectableChild(this.xField);
 
@@ -104,6 +119,8 @@ public class CoordinateInputScreen extends Screen {
         this.yField.setMaxLength(10);
         if (isEdit) {
             this.yField.setText(String.valueOf(coordinate.getY()));
+        } else {
+            this.yField.setPlaceholder(Text.literal(String.valueOf(defaultY)));
         }
         this.addSelectableChild(this.yField);
 
@@ -113,17 +130,19 @@ public class CoordinateInputScreen extends Screen {
         this.zField.setMaxLength(10);
         if (isEdit) {
             this.zField.setText(String.valueOf(coordinate.getZ()));
+        } else {
+            this.zField.setPlaceholder(Text.literal(String.valueOf(defaultZ)));
         }
         this.addSelectableChild(this.zField);
 
         // 保存按钮
-        this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.save"), button -> {
+        this.saveButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.save"), button -> {
             saveCoordinate();
         }).dimensions(centerX - 80, startY + 190, 70, 20).build());
 
         // 删除按钮（仅编辑时显示）
         if (isEdit) {
-            this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.delete"), button -> {
+            this.deleteButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.delete"), button -> {
                 coordinateData.removePoint(index);
                 ConfigManager.save();
                 this.client.setScreen(parent);
@@ -131,9 +150,23 @@ public class CoordinateInputScreen extends Screen {
         }
 
         // 取消按钮
-        this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.cancel"), button -> {
+        this.cancelButton = this.addDrawableChild(ButtonWidget.builder(Text.translatable("button.emohelper.cancel"), button -> {
             this.client.setScreen(parent);
         }).dimensions(centerX - 80, startY + 220, 160, 20).build());
+
+        clampScroll();
+        applyScrollLayout();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        int previous = scrollOffset;
+        scrollOffset = Math.max(0, Math.min(getMaxScroll(), scrollOffset - (int) (verticalAmount * SCROLL_STEP)));
+        if (scrollOffset != previous) {
+            applyScrollLayout();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
     private void saveCoordinate() {
@@ -143,10 +176,18 @@ public class CoordinateInputScreen extends Screen {
             if (groupName == null || groupName.isBlank()) {
                 groupName = currentGroupName;
             }
+            String sourceGroup = isEdit ? coordinate.getGroupName() : groupName;
+            if (coordinateData.isGroupLocked(sourceGroup) || coordinateData.isGroupLocked(groupName)) {
+                if (this.client != null && this.client.player != null) {
+                    this.client.player.sendMessage(Text.translatable("message.emohelper.group_locked"), true);
+                }
+                return;
+            }
+            OrderedRouteManager.setPreferredGroup(groupName);
             int color = parseColorOrDefault(this.colorField.getText(), isEdit ? coordinate.getColor() : 0xFF00FF00);
-            int x = Integer.parseInt(this.xField.getText());
-            int y = parseYOrDefault(this.yField.getText());
-            int z = Integer.parseInt(this.zField.getText());
+            int x = parseCoordinateOrDefault(this.xField.getText(), defaultX);
+            int y = parseCoordinateOrDefault(this.yField.getText(), defaultY);
+            int z = parseCoordinateOrDefault(this.zField.getText(), defaultZ);
 
             if (label.isEmpty()) {
                 // 显示错误消息
@@ -165,7 +206,12 @@ public class CoordinateInputScreen extends Screen {
                 CoordinatePoint point = new CoordinatePoint(x, y, z, label);
                 point.setGroupName(groupName);
                 point.setColor(color);
-                coordinateData.addPoint(point);
+                if (!coordinateData.addPoint(point)) {
+                    if (this.client != null && this.client.player != null) {
+                        this.client.player.sendMessage(Text.translatable("message.emohelper.max_coordinates_reached"), true);
+                    }
+                    return;
+                }
             }
 
             ConfigManager.save();
@@ -177,6 +223,7 @@ public class CoordinateInputScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        applyScrollLayout();
         this.renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
 
@@ -184,12 +231,12 @@ public class CoordinateInputScreen extends Screen {
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 20, 0xFFFFFF);
 
         // 绘制标签
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.label"), this.width / 2 - 155, 55, 0xAAAAAA);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.group"), this.width / 2 - 155, 85, 0xAAAAAA);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.color"), this.width / 2 - 155, 115, 0xAAAAAA);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.x"), this.width / 2 - 155, 145, 0xAAAAAA);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.y"), this.width / 2 - 155, 175, 0xAAAAAA);
-        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.z"), this.width / 2 - 155, 205, 0xAAAAAA);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.label"), this.width / 2 - 155, toScreenY(55), 0xAAAAAA);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.group"), this.width / 2 - 155, toScreenY(85), 0xAAAAAA);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.color"), this.width / 2 - 155, toScreenY(115), 0xAAAAAA);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.x"), this.width / 2 - 155, toScreenY(145), 0xAAAAAA);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.y"), this.width / 2 - 155, toScreenY(175), 0xAAAAAA);
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("field.emohelper.z"), this.width / 2 - 155, toScreenY(205), 0xAAAAAA);
 
         // 渲染输入框
         this.labelField.render(context, mouseX, mouseY, delta);
@@ -205,20 +252,50 @@ public class CoordinateInputScreen extends Screen {
             ? CoordinateData.DEFAULT_GROUP
             : groupName;
         this.currentGroupName = normalized;
+        OrderedRouteManager.setPreferredGroup(normalized);
         if (this.groupField != null) {
             this.groupField.setText(normalized);
         }
     }
 
-    private int parseYOrDefault(String input) {
+    private int parseCoordinateOrDefault(String input, int fallback) {
         if (input == null || input.isBlank()) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player != null) {
-                return client.player.getBlockY();
-            }
-            return 64;
+            return fallback;
         }
         return Integer.parseInt(input.trim());
+    }
+
+    private int resolveDefaultX() {
+        if (isEdit) {
+            return coordinate.getX();
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            return client.player.getBlockX();
+        }
+        return 0;
+    }
+
+    private int resolveDefaultY() {
+        if (isEdit) {
+            return coordinate.getY();
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            return client.player.getBlockY();
+        }
+        return 64;
+    }
+
+    private int resolveDefaultZ() {
+        if (isEdit) {
+            return coordinate.getZ();
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            return client.player.getBlockZ();
+        }
+        return 0;
     }
 
     private String formatColor(int color) {
@@ -245,5 +322,53 @@ public class CoordinateInputScreen extends Screen {
 
     public void close() {
         this.client.setScreen(parent);
+    }
+
+    private int toScreenY(int baseY) {
+        return baseY - scrollOffset;
+    }
+
+    private int getMaxScroll() {
+        int contentBottom = BASE_START_Y + 220 + 20 + 12;
+        int viewportBottom = this.height - 10;
+        return Math.max(0, contentBottom - viewportBottom);
+    }
+
+    private void clampScroll() {
+        scrollOffset = Math.max(0, Math.min(scrollOffset, getMaxScroll()));
+    }
+
+    private void applyScrollLayout() {
+        int startY = BASE_START_Y;
+        if (labelField != null) {
+            labelField.setY(toScreenY(startY));
+        }
+        if (groupField != null) {
+            groupField.setY(toScreenY(startY + 30));
+        }
+        if (groupSelectButton != null) {
+            groupSelectButton.setY(toScreenY(startY + 30));
+        }
+        if (colorField != null) {
+            colorField.setY(toScreenY(startY + 60));
+        }
+        if (xField != null) {
+            xField.setY(toScreenY(startY + 90));
+        }
+        if (yField != null) {
+            yField.setY(toScreenY(startY + 120));
+        }
+        if (zField != null) {
+            zField.setY(toScreenY(startY + 150));
+        }
+        if (saveButton != null) {
+            saveButton.setY(toScreenY(startY + 190));
+        }
+        if (deleteButton != null) {
+            deleteButton.setY(toScreenY(startY + 190));
+        }
+        if (cancelButton != null) {
+            cancelButton.setY(toScreenY(startY + 220));
+        }
     }
 }

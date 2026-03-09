@@ -1,5 +1,7 @@
 package com.Emo.emohelper.client.screen;
 
+import com.Emo.emohelper.config.ConfigManager;
+import com.Emo.emohelper.config.CoordinateData;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -44,13 +46,30 @@ public class GroupSelectScreen extends Screen {
         int totalEntries = groups.size();
         int startIndex = Math.max(0, Math.min(scrollOffset, Math.max(0, totalEntries - ENTRIES_PER_PAGE)));
         int endIndex = Math.min(startIndex + ENTRIES_PER_PAGE, totalEntries);
+        boolean fallbackShowLabels = ConfigManager.getModConfig().shouldShowLabels();
+        float fallbackRenderDistance = ConfigManager.getModConfig().getRenderDistance();
+        CoordinateData coordinateData = ConfigManager.getCoordinateData();
 
         for (int i = startIndex; i < endIndex; i++) {
             String group = groups.get(i);
+            CoordinateData.GroupRenderSettings settings = coordinateData.getGroupRenderSettings(
+                group,
+                fallbackShowLabels,
+                fallbackRenderDistance);
+            boolean orderedGroup = settings.groupType() == CoordinateData.GroupType.ORDERED;
             boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + ENTRY_HEIGHT;
-            int bg = hovered ? 0xFF555555 : 0xFF3F3F3F;
+            int bg;
+            if (hovered) {
+                bg = orderedGroup ? 0xFF3F5A7A : 0xFF555555;
+            } else {
+                bg = orderedGroup ? 0xFF2D3C57 : 0xFF3F3F3F;
+            }
+            String marker = orderedGroup
+                ? Text.translatable("text.emohelper.group_type_marker.ordered").getString()
+                : Text.translatable("text.emohelper.group_type_marker.normal").getString();
+            String displayName = "[" + marker + "] " + group;
             context.fill(x, y, x + width, y + ENTRY_HEIGHT, bg);
-            context.drawTextWithShadow(this.textRenderer, Text.literal(group), x + 6, y + 6, 0xFFFFFF);
+            context.drawTextWithShadow(this.textRenderer, Text.literal(displayName), x + 6, y + 6, 0xFFFFFF);
             y += ENTRY_HEIGHT;
         }
 
